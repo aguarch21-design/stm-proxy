@@ -289,7 +289,7 @@ td.mono{font-family:'DM Mono',monospace;font-size:12px;}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var GPS_THRESH=300000,LATE_MS=3*60*1000,EARLY_MS=2*60*1000;
+var GPS_THRESH=5*60*1000,LATE_MS=2*60*1000;
 var CAT_COLOR={ok:'#2ecc71',bad:'#e74c3c',ng:'#f1c40f'};
 var CAT_LABEL={ok:'En horario',bad:'Fuera de hora',ng:'Sin GPS'};
 var CAT_BADGE={ok:'bk-ok',bad:'bk-bad',ng:'bk-ng'};
@@ -301,7 +301,7 @@ var autoTimer=null,progressTimer=null,autoInterval=0,progressStart=0;
 function classify(f){
   var fr=f.properties.frecuencia;
   if(!fr||fr>GPS_THRESH) return 'ng';
-  if(fr>LATE_MS||fr<EARLY_MS) return 'bad';
+  if(fr>LATE_MS) return 'bad';
   return 'ok';
 }
 function fmtMs(ms){
@@ -315,6 +315,13 @@ function fmtMs(ms){
 function pct(n,t){return t?Math.round(n/t*100)+'%':'0%';}
 
 // FILE HANDLING
+// Restore saved proxy URL
+(function(){
+  var DEFAULT_PROXY='https://express-hello-world-2ft5.onrender.com/api/buses';
+  var saved=localStorage.getItem('stm_proxy_url')||DEFAULT_PROXY;
+  document.getElementById('proxy-url').value=saved;
+  document.getElementById('proxy-inp-setup').value=saved;
+})();
 document.getElementById('file-input').addEventListener('change',function(e){var f=e.target.files[0];if(f)readFile(f);});
 var dz=document.getElementById('drop-zone');
 dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
@@ -338,7 +345,7 @@ function startWithProxy(){
 async function fetchFromProxy(){
   var url=document.getElementById('proxy-url').value.trim();
   if(!url){showToast('Ingresá la URL del proxy en la barra superior.');return;}
-  var btn=document.getElementById('btn-refresh');
+  localStorage.setItem('stm_proxy_url',url);  var btn=document.getElementById('btn-refresh');
   btn.disabled=true;btn.classList.add('spinning');
   try{
     var res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
