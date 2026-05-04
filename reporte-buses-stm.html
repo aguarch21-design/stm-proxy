@@ -1,1 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reporte STM — Buses Montevideo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0f1117;--s1:#171b24;--s2:#1e2330;
+  --bd:rgba(255,255,255,0.07);--bd2:rgba(255,255,255,0.12);
+  --tx:#e8eaf0;--mu:#7a7f8e;
+  --ok:#2ecc71;--ok-bg:rgba(46,204,113,0.12);
+  --bad:#e74c3c;--bad-bg:rgba(231,76,60,0.12);
+  --ng:#f1c40f;--ng-bg:rgba(241,196,15,0.12);
+  --ac:#4f80ff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;font-size:14px;}
 
+/* UPLOAD */
+#upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:2rem;text-align:center;}
+.upload-logo{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.15em;color:var(--mu);text-transform:uppercase;margin-bottom:2.5rem;}
+.upload-logo span{color:var(--ac);}
+.upload-card{background:var(--s1);border:1px dashed var(--bd2);border-radius:16px;padding:2.5rem 3.5rem;max-width:500px;width:100%;cursor:pointer;transition:all 0.2s;position:relative;}
+.upload-card:hover,.upload-card.drag{border-color:var(--ac);background:rgba(79,128,255,0.04);}
+.upload-icon{width:52px;height:52px;border-radius:12px;background:rgba(79,128,255,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;}
+.upload-icon svg{width:22px;height:22px;stroke:var(--ac);fill:none;stroke-width:1.5;}
+.upload-card h2{font-size:17px;font-weight:500;margin-bottom:0.4rem;}
+.upload-card p{font-size:13px;color:var(--mu);line-height:1.6;}
+.upload-card input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-hint{margin-top:1.25rem;font-size:12px;color:var(--mu);}
+.upload-hint code{font-family:'DM Mono',monospace;background:var(--s2);padding:2px 6px;border-radius:4px;font-size:11px;}
+.sample-btn{margin-top:1rem;font-size:12px;color:var(--ac);cursor:pointer;background:none;border:none;font-family:'DM Sans',sans-serif;text-decoration:underline;}
+
+/* PROXY SETUP ON UPLOAD SCREEN */
+.proxy-setup{max-width:500px;width:100%;margin-top:1.25rem;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:1rem 1.25rem;text-align:left;}
+.proxy-setup-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--mu);margin-bottom:0.75rem;}
+.proxy-row{display:flex;gap:8px;align-items:center;}
+.proxy-inp{flex:1;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-family:'DM Mono',monospace;}
+.proxy-inp::placeholder{color:var(--mu);}
+.proxy-inp:focus{outline:none;border-color:var(--ac);}
+.btn-proxy-go{font-size:12px;padding:6px 14px;border-radius:8px;border:none;background:var(--ac);color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;}
+.btn-proxy-go:hover{opacity:0.85;}
+.proxy-hint{font-size:11px;color:var(--mu);margin-top:6px;}
+.proxy-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+
+/* DASHBOARD */
+#dashboard{display:none;flex-direction:column;height:100vh;}
+#dashboard.on{display:flex;}
+
+/* TOPBAR */
+.topbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0.625rem 1.25rem;border-bottom:1px solid var(--bd);gap:10px;flex-wrap:wrap;}
+.brand{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.1em;color:var(--mu);}
+.brand span{color:var(--ac);}
+.topbar-center{display:flex;align-items:center;gap:8px;flex:1;justify-content:center;flex-wrap:wrap;}
+.proxy-url-inp{font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);font-family:'DM Mono',monospace;width:280px;min-width:160px;}
+.proxy-url-inp::placeholder{color:var(--mu);}
+.proxy-url-inp:focus{outline:none;border-color:var(--ac);}
+.btn-refresh{display:flex;align-items:center;gap:5px;font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid var(--bd2);background:transparent;color:var(--tx);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.btn-refresh:hover{background:var(--s2);}
+.btn-refresh:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-refresh svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;transition:transform 0.3s;}
+.btn-refresh.spinning svg{animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.auto-select{font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;}
+.auto-select:focus{outline:none;}
+.auto-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-family:'DM Mono',monospace;}
+.auto-on{background:rgba(46,204,113,0.15);color:var(--ok);}
+.auto-off{background:var(--s2);color:var(--mu);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.ts{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;}
+.btn-sm{font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid var(--bd2);background:transparent;color:var(--mu);cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-sm:hover{background:var(--s2);color:var(--tx);}
+.countdown{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;min-width:30px;}
+
+/* PROGRESS BAR */
+.progress-bar{flex-shrink:0;height:2px;background:var(--bd);}
+.progress-fill{height:100%;background:var(--ac);width:0%;transition:width linear;}
+
+/* METRICS */
+.metrics{flex-shrink:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0.75rem 1.25rem;border-bottom:1px solid var(--bd);}
+.metric{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:0.625rem 1rem;cursor:pointer;position:relative;overflow:hidden;transition:border-color 0.15s;}
+.metric::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;opacity:0;transition:opacity 0.15s;}
+.metric.active{border-color:var(--bd2);}.metric.active::after{opacity:1;}
+.m-all::after{background:var(--ac);}
+.m-ok::after{background:var(--ok);}
+.m-bad::after{background:var(--bad);}
+.m-ng::after{background:var(--ng);}
+.metric:hover{border-color:var(--bd2);}
+.metric .lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;}
+.metric .val{font-size:22px;font-weight:600;line-height:1;font-family:'DM Mono',monospace;}
+.metric .sub{font-size:11px;color:var(--mu);margin-top:2px;font-family:'DM Mono',monospace;}
+.m-all .val{color:var(--tx);}
+.m-ok .val{color:var(--ok);}
+.m-bad .val{color:var(--bad);}
+.m-ng .val{color:var(--ng);}
+
+/* FILTERS */
+.filters-bar{flex-shrink:0;display:flex;gap:8px;padding:0.5rem 1.25rem;border-bottom:1px solid var(--bd);align-items:center;flex-wrap:wrap;}
+.fsel{font-size:13px;padding:5px 9px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);color:var(--tx);font-family:'DM Sans',sans-serif;cursor:pointer;}
+.fsel:focus{outline:none;border-color:var(--ac);}
+.fsearch{font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);color:var(--tx);font-family:'DM Mono',monospace;width:150px;}
+.fsearch::placeholder{color:var(--mu);}
+.fsearch:focus{outline:none;border-color:var(--ac);}
+.fcount{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;margin-left:auto;}
+
+/* BODY */
+.body{flex:1;display:grid;grid-template-columns:1fr 360px;overflow:hidden;}
+@media(max-width:860px){.body{grid-template-columns:1fr;}}
+
+/* MAP */
+.map-area{position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+
+/* ERROR TOAST */
+.err-toast{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:2000;background:var(--bad-bg);border:1px solid rgba(231,76,60,0.3);color:var(--bad);font-size:12px;padding:8px 16px;border-radius:20px;display:none;white-space:nowrap;backdrop-filter:blur(8px);}
+
+/* STATE FILTER FLOATING */
+.state-filter{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:4px;background:rgba(12,14,20,0.93);backdrop-filter:blur(12px);border:1px solid var(--bd2);border-radius:40px;padding:5px 8px;white-space:nowrap;}
+.sf-btn{display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;border-radius:30px;border:none;background:transparent;color:var(--mu);font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;}
+.sf-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sf-btn:hover{color:var(--tx);}
+.sf-btn.active{background:rgba(255,255,255,0.07);color:var(--tx);}
+.sf-ok .sf-dot{background:var(--ok);}
+.sf-bad .sf-dot{background:var(--bad);}
+.sf-ng .sf-dot{background:var(--ng);}
+.sf-btn.sf-ok.active{color:var(--ok);}
+.sf-btn.sf-bad.active{color:var(--bad);}
+.sf-btn.sf-ng.active{color:var(--ng);}
+.sf-btn.sf-all.active{color:var(--ac);}
+
+/* TABLE */
+.table-panel{border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
+.tp-head{flex-shrink:0;padding:0.625rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;}
+.tp-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;color:var(--mu);}
+.tp-count{font-size:11px;color:var(--mu);font-family:'DM Mono',monospace;}
+.table-wrap{flex:1;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--mu);padding:0.5rem 0.875rem;text-align:left;background:var(--s1);position:sticky;top:0;border-bottom:1px solid var(--bd);font-weight:500;cursor:pointer;white-space:nowrap;}
+thead th:hover{color:var(--tx);}
+.sa{margin-left:3px;opacity:0.5;font-size:10px;}
+tbody tr{border-bottom:1px solid var(--bd);cursor:pointer;transition:background 0.1s;}
+tbody tr:hover{background:var(--s2);}
+tbody tr:last-child{border-bottom:none;}
+td{padding:0.5rem 0.875rem;font-size:13px;}
+td.mono{font-family:'DM Mono',monospace;font-size:12px;}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;white-space:nowrap;}
+.bk-ok{background:var(--ok-bg);color:var(--ok);}
+.bk-bad{background:var(--bad-bg);color:var(--bad);}
+.bk-ng{background:var(--ng-bg);color:#c8a800;}
+.empty-row td{text-align:center;padding:2rem;color:var(--mu);}
+.cbar{display:inline-block;width:3px;height:14px;border-radius:2px;vertical-align:middle;margin-right:6px;}
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-logo"><span>STM</span> · Montevideo · Monitor de buses</div>
+
+  <div class="upload-card" id="drop-zone">
+    <input type="file" id="file-input" accept=".json,.geojson"/>
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+    </div>
+    <h2>Cargar datos de buses</h2>
+    <p>Arrastrá el JSON descargado de la API, o hacé clic para seleccionarlo.</p>
+  </div>
+  <div class="upload-hint">Formato: GeoJSON de <code>POST /buses/rest/stm-online</code></div>
+  <button class="sample-btn" onclick="loadSample()">Cargar datos de ejemplo</button>
+
+  <!-- PROXY SETUP -->
+  <div class="proxy-setup">
+    <div class="proxy-setup-title">⚡ O conectar directamente con proxy</div>
+    <div class="proxy-row">
+      <input class="proxy-inp" id="proxy-inp-setup" placeholder="https://tu-proxy.railway.app/api/buses" type="text"/>
+      <button class="btn-proxy-go" onclick="startWithProxy()">Conectar</button>
+    </div>
+    <div class="proxy-hint">Ingresá la URL de tu proxy para obtener datos en tiempo real sin cargar archivos.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="brand"><span>STM</span> · Monitor</div>
+
+    <div class="topbar-center">
+      <input class="proxy-url-inp" id="proxy-url" placeholder="https://tu-proxy.railway.app/api/buses" type="text"/>
+      <button class="btn-refresh" id="btn-refresh" onclick="fetchFromProxy()">
+        <svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Actualizar
+      </button>
+      <select class="auto-select" id="auto-select" onchange="toggleAuto()">
+        <option value="0">Auto: OFF</option>
+        <option value="30">Cada 30s</option>
+        <option value="60">Cada 1 min</option>
+        <option value="120">Cada 2 min</option>
+        <option value="300">Cada 5 min</option>
+      </select>
+      <span class="auto-badge auto-off" id="auto-badge">—</span>
+    </div>
+
+    <div class="topbar-right">
+      <span class="ts" id="ts">—</span>
+      <button class="btn-sm" onclick="resetDashboard()">← Otro archivo</button>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR FOR AUTO REFRESH -->
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div class="metrics">
+    <div class="metric m-all active" id="tab-all" onclick="setTab('all',this)">
+      <div class="lbl">Total buses</div>
+      <div class="val" id="m-total">0</div>
+      <div class="sub" id="p-total">—</div>
+    </div>
+    <div class="metric m-ok" id="tab-ok" onclick="setTab('ok',this)">
+      <div class="lbl">🟢 En horario</div>
+      <div class="val" id="m-ok">0</div>
+      <div class="sub" id="p-ok">0%</div>
+    </div>
+    <div class="metric m-bad" id="tab-bad" onclick="setTab('bad',this)">
+      <div class="lbl">🔴 Fuera de hora</div>
+      <div class="val" id="m-bad">0</div>
+      <div class="sub" id="p-bad">0%</div>
+    </div>
+    <div class="metric m-ng" id="tab-ng" onclick="setTab('ng',this)">
+      <div class="lbl">🟡 Sin GPS</div>
+      <div class="val" id="m-ng">0</div>
+      <div class="sub" id="p-ng">0%</div>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <span style="font-size:12px;color:var(--mu);">Filtrar:</span>
+    <select class="fsel" id="f-empresa" onchange="applyFilters()">
+      <option value="">Todas las empresas</option>
+    </select>
+    <select class="fsel" id="f-linea" onchange="applyFilters()">
+      <option value="">Todas las líneas</option>
+    </select>
+    <input class="fsearch" id="f-search" placeholder="Bus # o línea..." oninput="applyFilters()"/>
+    <span class="fcount" id="fcount"></span>
+  </div>
+
+  <div class="body">
+    <div class="map-area">
+      <div id="map"></div>
+      <div class="err-toast" id="err-toast"></div>
+      <div class="state-filter">
+        <button class="sf-btn sf-all active" id="sf-all" onclick="setSF('all',this)">Todos</button>
+        <button class="sf-btn sf-ok" id="sf-ok" onclick="setSF('ok',this)">
+          <span class="sf-dot"></span>En horario
+        </button>
+        <button class="sf-btn sf-bad" id="sf-bad" onclick="setSF('bad',this)">
+          <span class="sf-dot"></span>Fuera de hora
+        </button>
+        <button class="sf-btn sf-ng" id="sf-ng" onclick="setSF('ng',this)">
+          <span class="sf-dot"></span>Sin GPS
+        </button>
+      </div>
+    </div>
+
+    <div class="table-panel">
+      <div class="tp-head">
+        <span class="tp-title" id="tp-title">Todos los buses</span>
+        <span class="tp-count" id="tp-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('linea')">Línea<span class="sa" id="sa-linea"></span></th>
+              <th onclick="sortBy('bus')">Bus<span class="sa" id="sa-bus"></span></th>
+              <th onclick="sortBy('estado')">Estado<span class="sa" id="sa-estado"></span></th>
+              <th onclick="sortBy('frecuencia')">Señal<span class="sa" id="sa-frecuencia"></span></th>
+            </tr>
+          </thead>
+          <tbody id="bus-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var GPS_THRESH=300000,LATE_MS=3*60*1000,EARLY_MS=2*60*1000;
+var CAT_COLOR={ok:'#2ecc71',bad:'#e74c3c',ng:'#f1c40f'};
+var CAT_LABEL={ok:'En horario',bad:'Fuera de hora',ng:'Sin GPS'};
+var CAT_BADGE={ok:'bk-ok',bad:'bk-bad',ng:'bk-ng'};
+var EMPRESAS={10:'COETC',20:'COME',50:'CUTCSA',70:'UCOT'};
+var allData=[],filtered=[],currentTab='all',sortCol='linea',sortDir=1;
+var map,layerGroup;
+var autoTimer=null,progressTimer=null,autoInterval=0,progressStart=0;
+
+function classify(f){
+  var fr=f.properties.frecuencia;
+  if(!fr||fr>GPS_THRESH) return 'ng';
+  if(fr>LATE_MS||fr<EARLY_MS) return 'bad';
+  return 'ok';
+}
+function fmtMs(ms){
+  if(!ms) return '—';
+  var s=Math.round(ms/1000);
+  if(s<60) return s+'s';
+  var m=Math.round(s/60);
+  if(m<60) return m+' min';
+  return Math.floor(m/60)+'h '+(m%60)+'m';
+}
+function pct(n,t){return t?Math.round(n/t*100)+'%':'0%';}
+
+// FILE HANDLING
+document.getElementById('file-input').addEventListener('change',function(e){var f=e.target.files[0];if(f)readFile(f);});
+var dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
+dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('drag');var f=e.dataTransfer.files[0];if(f)readFile(f);});
+function readFile(file){
+  var r=new FileReader();
+  r.onload=function(e){try{processData(JSON.parse(e.target.result),file.name,false);}catch(err){alert('Error: '+err.message);}};
+  r.readAsText(file);
+}
+
+// PROXY
+function startWithProxy(){
+  var url=document.getElementById('proxy-inp-setup').value.trim();
+  if(!url){alert('Ingresá la URL del proxy primero.');return;}
+  document.getElementById('proxy-url').value=url;
+  showDashboard('en vivo');
+  fetchFromProxy();
+}
+
+async function fetchFromProxy(){
+  var url=document.getElementById('proxy-url').value.trim();
+  if(!url){showToast('Ingresá la URL del proxy en la barra superior.');return;}
+  var btn=document.getElementById('btn-refresh');
+  btn.disabled=true;btn.classList.add('spinning');
+  try{
+    var res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var data=await res.json();
+    processData(data,'en vivo',true);
+  }catch(e){
+    showToast('Error al conectar: '+e.message);
+  }finally{
+    btn.disabled=false;btn.classList.remove('spinning');
+  }
+}
+
+function showToast(msg){
+  var t=document.getElementById('err-toast');
+  t.textContent=msg;t.style.display='block';
+  setTimeout(function(){t.style.display='none';},4000);
+}
+
+// AUTO REFRESH
+function toggleAuto(){
+  var val=parseInt(document.getElementById('auto-select').value);
+  clearAuto();
+  if(val===0){
+    document.getElementById('auto-badge').textContent='—';
+    document.getElementById('auto-badge').className='auto-badge auto-off';
+    document.getElementById('progress-fill').style.width='0%';
+    document.getElementById('progress-fill').style.transition='none';
+    return;
+  }
+  autoInterval=val;
+  document.getElementById('auto-badge').className='auto-badge auto-on';
+  startAutoRefresh();
+}
+
+function startAutoRefresh(){
+  if(!autoInterval) return;
+  // progress bar
+  var fill=document.getElementById('progress-fill');
+  fill.style.transition='none';fill.style.width='0%';
+  setTimeout(function(){
+    fill.style.transition='width '+autoInterval+'s linear';
+    fill.style.width='100%';
+  },50);
+  // badge countdown
+  var remaining=autoInterval;
+  document.getElementById('auto-badge').textContent='⟳ '+remaining+'s';
+  progressTimer=setInterval(function(){
+    remaining--;
+    document.getElementById('auto-badge').textContent='⟳ '+remaining+'s';
+    if(remaining<=0) clearInterval(progressTimer);
+  },1000);
+  // actual refresh
+  autoTimer=setTimeout(function(){
+    fetchFromProxy();
+    startAutoRefresh();
+  },autoInterval*1000);
+}
+
+function clearAuto(){
+  clearTimeout(autoTimer);clearInterval(progressTimer);
+  autoTimer=null;progressTimer=null;autoInterval=0;
+}
+
+function loadSample(){
+  var lineas=['G','D1','D5','100','101','102','103','104','G6','L1','L2','174','175','180'];
+  var frArr=[20000,45000,120000,250000,500000,900000,null];
+  var features=[];
+  for(var i=0;i<250;i++){
+    features.push({type:'Feature',
+      geometry:{type:'Point',coordinates:[-56.24+Math.random()*0.18,-34.88+Math.random()*0.12]},
+      properties:{codigoBus:1000+i,linea:lineas[Math.floor(Math.random()*lineas.length)],
+        variante:Math.floor(Math.random()*3)+1,empresa:[10,20,50,70][Math.floor(Math.random()*4)],
+        frecuencia:frArr[Math.floor(Math.random()*frArr.length)]}});
+  }
+  processData({features:features},'datos-de-ejemplo',false);
+}
+
+function processData(data,fname,fromProxy){
+  allData=(data.features||[]).map(function(f){f._cat=classify(f);return f;});
+  var empSet=new Set(),linSet=new Set();
+  allData.forEach(function(f){
+    if(f.properties.empresa)empSet.add(f.properties.empresa);
+    if(f.properties.linea)linSet.add(f.properties.linea);
+  });
+  var esel=document.getElementById('f-empresa');
+  esel.innerHTML='<option value="">Todas las empresas</option>';
+  [...empSet].sort().forEach(function(e){esel.innerHTML+='<option value="'+e+'">'+(EMPRESAS[e]||'Empresa '+e)+'</option>';});
+  var lsel=document.getElementById('f-linea');
+  lsel.innerHTML='<option value="">Todas las líneas</option>';
+  [...linSet].sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});}).forEach(function(l){lsel.innerHTML+='<option value="'+l+'">'+l+'</option>';});
+
+  var now=new Date().toLocaleString('es-UY');
+  document.getElementById('ts').textContent=now+' · '+allData.length+' buses';
+
+  if(!document.getElementById('dashboard').classList.contains('on')){
+    showDashboard(fname);
+  }
+  applyFilters();
+}
+
+function showDashboard(fname){
+  document.getElementById('upload-screen').style.display='none';
+  document.getElementById('dashboard').classList.add('on');
+  initMap();
+}
+
+function initMap(){
+  if(map) return;
+  map=L.map('map',{zoomControl:true}).setView([-34.9011,-56.1645],12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',maxZoom:19,subdomains:'abcd'
+  }).addTo(map);
+  layerGroup=L.layerGroup().addTo(map);
+  setTimeout(function(){map.invalidateSize();},200);
+}
+
+function applyFilters(){
+  var empresa=document.getElementById('f-empresa').value;
+  var linea=document.getElementById('f-linea').value;
+  var search=document.getElementById('f-search').value.trim().toLowerCase();
+  filtered=allData.filter(function(f){
+    var p=f.properties;
+    if(currentTab!=='all'&&f._cat!==currentTab) return false;
+    if(empresa&&String(p.empresa)!==empresa) return false;
+    if(linea&&p.linea!==linea) return false;
+    if(search&&!String(p.codigoBus).includes(search)&&!String(p.linea).toLowerCase().includes(search)) return false;
+    return true;
+  });
+  updateMetrics();renderTable();renderMap();
+}
+
+function updateMetrics(){
+  var total=allData.length,cats={ok:0,bad:0,ng:0};
+  allData.forEach(function(f){cats[f._cat]++;});
+  document.getElementById('m-total').textContent=total;
+  document.getElementById('p-total').textContent=new Date().toLocaleDateString('es-UY');
+  document.getElementById('m-ok').textContent=cats.ok;document.getElementById('p-ok').textContent=pct(cats.ok,total);
+  document.getElementById('m-bad').textContent=cats.bad;document.getElementById('p-bad').textContent=pct(cats.bad,total);
+  document.getElementById('m-ng').textContent=cats.ng;document.getElementById('p-ng').textContent=pct(cats.ng,total);
+  document.getElementById('fcount').textContent=filtered.length+' buses';
+  document.getElementById('tp-count').textContent=filtered.length;
+}
+
+function setTab(tab,el){
+  currentTab=tab;
+  document.querySelectorAll('.metric').forEach(function(m){m.classList.remove('active');});
+  el.classList.add('active');syncSF(tab);
+  var labels={all:'Todos los buses',ok:'En horario',bad:'Fuera de hora',ng:'Sin GPS'};
+  document.getElementById('tp-title').textContent=labels[tab];
+  applyFilters();
+}
+
+function setSF(state,el){
+  currentTab=state;
+  document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  document.querySelectorAll('.metric').forEach(function(m){m.classList.remove('active');});
+  var m2={all:'tab-all',ok:'tab-ok',bad:'tab-bad',ng:'tab-ng'};
+  var t=document.getElementById(m2[state]);if(t)t.classList.add('active');
+  var labels={all:'Todos los buses',ok:'En horario',bad:'Fuera de hora',ng:'Sin GPS'};
+  document.getElementById('tp-title').textContent=labels[state];
+  applyFilters();
+}
+function syncSF(state){
+  document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('active');});
+  var sfMap={all:'sf-all',ok:'sf-ok',bad:'sf-bad',ng:'sf-ng'};
+  var el=document.getElementById(sfMap[state]);if(el)el.classList.add('active');
+}
+
+function sortBy(col){
+  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}
+  document.querySelectorAll('.sa').forEach(function(a){a.textContent='';});
+  var el=document.getElementById('sa-'+col);if(el)el.textContent=sortDir===1?' ↑':' ↓';
+  renderTable();
+}
+
+function renderTable(){
+  var sorted=[...filtered].sort(function(a,b){
+    var pa=a.properties,pb=b.properties,va,vb;
+    if(sortCol==='linea'){va=pa.linea||'';vb=pb.linea||'';}
+    else if(sortCol==='bus'){va=pa.codigoBus||0;vb=pb.codigoBus||0;}
+    else if(sortCol==='estado'){va=a._cat;vb=b._cat;}
+    else if(sortCol==='frecuencia'){va=pa.frecuencia||9999999;vb=pb.frecuencia||9999999;}
+    if(va<vb)return -1*sortDir;if(va>vb)return 1*sortDir;return 0;
+  });
+  var tbody=document.getElementById('bus-tbody');
+  if(!sorted.length){tbody.innerHTML='<tr class="empty-row"><td colspan="4">Sin resultados</td></tr>';return;}
+  tbody.innerHTML=sorted.map(function(f){
+    var p=f.properties,cat=f._cat,color=CAT_COLOR[cat];
+    var coords=f.geometry?f.geometry.coordinates:null;
+    var lat=coords?coords[1]:0,lng=coords?coords[0]:0;
+    return '<tr onclick="focusBus('+lat+','+lng+')">'
+      +'<td class="mono"><span class="cbar" style="background:'+color+';"></span>'+p.linea+'</td>'
+      +'<td class="mono">#'+p.codigoBus+'</td>'
+      +'<td><span class="badge '+CAT_BADGE[cat]+'">'+CAT_LABEL[cat]+'</span></td>'
+      +'<td class="mono">'+fmtMs(p.frecuencia)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function renderMap(){
+  if(!layerGroup) return;
+  layerGroup.clearLayers();
+  filtered.forEach(function(f){
+    if(!f.geometry) return;
+    var c=f.geometry.coordinates,p=f.properties,cat=f._cat,color=CAT_COLOR[cat];
+    var icon=L.divIcon({
+      className:'',
+      html:'<div style="width:10px;height:10px;border-radius:50%;background:'+color+';box-shadow:0 0 5px '+color+'99;border:1.5px solid rgba(255,255,255,0.35);"></div>',
+      iconSize:[10,10],iconAnchor:[5,5]
+    });
+    var marker=L.marker([c[1],c[0]],{icon:icon});
+    marker.bindPopup(
+      '<div style="font-family:DM Sans,sans-serif;min-width:140px;font-size:13px;">'
+      +'<b style="font-family:DM Mono,monospace;font-size:15px;">Línea '+p.linea+'</b><br>'
+      +'<span style="color:#7a7f8e;font-size:12px;">Bus #'+p.codigoBus+' · Var. '+p.variante+'</span><br>'
+      +'<span style="color:'+color+';font-weight:500;">● '+CAT_LABEL[cat]+'</span><br>'
+      +'<span style="color:#7a7f8e;font-size:11px;">Señal hace: '+fmtMs(p.frecuencia)+'</span>'
+      +'</div>',{maxWidth:190}
+    );
+    layerGroup.addLayer(marker);
+  });
+}
+
+function focusBus(lat,lng){if(map&&lat&&lng)map.setView([lat,lng],16);}
+
+function resetDashboard(){
+  clearAuto();
+  allData=[];filtered=[];
+  document.getElementById('dashboard').classList.remove('on');
+  document.getElementById('upload-screen').style.display='flex';
+  document.getElementById('file-input').value='';
+  document.getElementById('auto-select').value='0';
+  document.getElementById('auto-badge').textContent='—';
+  document.getElementById('auto-badge').className='auto-badge auto-off';
+  document.getElementById('progress-fill').style.width='0%';
+  if(layerGroup)layerGroup.clearLayers();
+}
+</script>
+</body>
+</html>
